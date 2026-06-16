@@ -188,6 +188,22 @@ const FIELD_LABELS = { td: 'TD', tp: 'TP', exam: 'Examen' };
 const STORAGE_KEY = 'uubma_grades_v4';
 const HISTORY_KEY = 'uubma_history_v1';
 
+/* ─── INFINITESIMAL CONCEPT IMPLEMENTATION ─────────────────── */
+// إضافة المتناهي في الصغر لمنع أخطاء الجافا سكريبت في الفواصل الكثيرة وتقريبها العشوائي
+const EPSILON = 1e-14; 
+
+// دالة التنسيق اللانهائي: تقوم بإظهار الرقم بدقته الحقيقية كاملة بدون تدوير قسري مع التخلص من الفواصل الزائدة فقط إن وجدت
+const formatInfinitesimal = (num) => {
+  if (isNaN(num)) return '0';
+  const val = num + EPSILON;
+  // التخلص من أخطاء العطف الثنائي في الحساب وتحويل النتيجة لسلسلة رقمية دقيقة جداً تتبع الما لا نهاية بعد الصفر
+  return String(Number(val.toFixed(14))).replace(/\.?0+$/, '');
+};
+
+const isPassingValue = (val) => {
+  return (val + EPSILON) >= 10;
+};
+
 /* ─── HELPERS ───────────────────────────────────────────────── */
 const initGrades = () => {
   const g = {};
@@ -241,18 +257,20 @@ const loadHistory = () => {
 };
 
 const mention = (n) => {
-  if (n >= 16) return { label: 'Excellent',  color: 'text-emerald-500', emoji: '🏆' };
-  if (n >= 14) return { label: 'Très bien',  color: 'text-blue-500',    emoji: '⭐' };
-  if (n >= 12) return { label: 'Bien',       color: 'text-sky-500',     emoji: '👍' };
-  if (n >= 10) return { label: 'Passable',   color: 'text-yellow-500',  emoji: '✅' };
+  const val = n + EPSILON;
+  if (val >= 16) return { label: 'Excellent',  color: 'text-emerald-500', emoji: '🏆' };
+  if (val >= 14) return { label: 'Très bien',  color: 'text-blue-500',    emoji: '⭐' };
+  if (val >= 12) return { label: 'Bien',       color: 'text-sky-500',     emoji: '👍' };
+  if (val >= 10) return { label: 'Passable',   color: 'text-yellow-500',  emoji: '✅' };
   return { label: 'Échec', color: 'text-red-500', emoji: '❌' };
 };
 
 const barColor = (v) => {
-  if (v >= 16) return 'bg-emerald-500';
-  if (v >= 14) return 'bg-blue-500';
-  if (v >= 12) return 'bg-sky-500';
-  if (v >= 10) return 'bg-yellow-500';
+  const val = v + EPSILON;
+  if (val >= 16) return 'bg-emerald-500';
+  if (val >= 14) return 'bg-blue-500';
+  if (val >= 12) return 'bg-sky-500';
+  if (val >= 10) return 'bg-yellow-500';
   return 'bg-red-500';
 };
 
@@ -285,7 +303,7 @@ function Tooltip({ text, children }) {
   );
 }
 
-function Toast({ msg, icon }) {
+ function Toast({ msg, icon }) {
   return <div className="toast">{icon && <i className={`fa-solid ${icon}`}></i>}<span>{msg}</span></div>;
 }
 
@@ -309,10 +327,9 @@ function GradeInput({ value, onChange, dark, inputRef, onKeyNav }) {
     let n = parseFloat(v);
     if (n > 20) n = 20;
     if (n < 0) n = 0;
-    const snapped = Math.round(n * 4) / 4;
-    setLocal(String(snapped));
+    setLocal(String(n));
     setErr(false);
-    onChange(snapped);
+    onChange(n);
   };
 
   const handleKeyDown = (e) => {
@@ -324,7 +341,7 @@ function GradeInput({ value, onChange, dark, inputRef, onKeyNav }) {
   return (
     <input
       ref={inputRef}
-      type="number" min="0" max="20" step="0.25"
+      type="number" min="0" max="20" step="any"
       value={local}
       onChange={e => handleChange(e.target.value)}
       onBlur={e => handleBlur(e.target.value)}
@@ -429,7 +446,7 @@ function RequiredGradeModal({ subjects, grades, dark, onClose }) {
             </>
           ) : (
             <>
-              <p className="text-4xl font-black text-emerald-500 mb-1">{result.needed.toFixed(2)}<span className="text-lg">/20</span></p>
+              <p className="text-4xl font-black text-emerald-500 mb-1">{formatInfinitesimal(result.needed)}<span className="text-lg">/20</span></p>
               <p className={`text-xs ${dimText}`}>C'est la note minimale à obtenir à l'examen pour avoir {target}/20 de moyenne dans ce module.</p>
             </>
           )}
@@ -490,12 +507,11 @@ function SimulatorModal({ sem, grades, dark, onClose }) {
       <div className="grid grid-cols-2 gap-3 mb-4">
         <div className={`rounded-xl p-3 text-center border ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
           <p className={`text-[10px] font-bold uppercase ${dimText}`}>Moyenne actuelle</p>
-          <p className="text-2xl font-black">{current.toFixed(2)}</p>
+          <p className="text-2xl font-black">{formatInfinitesimal(current)}</p>
         </div>
         <div className={`rounded-xl p-3 text-center border-2 ${diff >= 0 ? 'border-emerald-400 bg-emerald-500/10' : 'border-red-400 bg-red-500/10'}`}>
-          <p className={`text-[10px] font-bold uppercase ${dimText}`}>Moyenne simulée</p>
           <p className={`text-2xl font-black ${diff >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-            {simulated.toFixed(2)} <span className="text-xs">({diff >= 0 ? '+' : ''}{diff.toFixed(2)})</span>
+            {formatInfinitesimal(simulated)} <span className="text-xs">({diff >= 0 ? '+' : ''}{formatInfinitesimal(diff)})</span>
           </p>
         </div>
       </div>
@@ -512,7 +528,7 @@ function SimulatorModal({ sem, grades, dark, onClose }) {
               {s.fields.map(f => (
                 <div key={f} className="flex flex-col">
                   <span className={`text-[9px] font-bold uppercase mb-1 ${dimText}`}>{FIELD_LABELS[f]}</span>
-                  <input type="number" min="0" max="20" step="0.25"
+                  <input type="number" min="0" max="20" step="any"
                     value={simGrades[s.id]?.[f] ?? ''}
                     onChange={e => handleSim(s.id, f, e.target.value)}
                     className={`w-16 text-center px-1.5 py-1 rounded-lg border text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-400 ${dark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`} />
@@ -540,7 +556,7 @@ function HistoryModal({ history, dark, onClose, onDelete, onLoad }) {
               <div>
                 <p className="text-sm font-bold">{h.label}</p>
                 <p className={`text-[10px] ${dimText}`}>{h.date}</p>
-                <p className={`text-xs font-bold ${parseFloat(h.s3) >= 10 ? 'text-emerald-500' : 'text-red-500'}`}>
+                <p className={`text-xs font-bold ${isPassingValue(parseFloat(h.yearly)) ? 'text-emerald-500' : 'text-red-500'}`}>
                   S3: {h.s3} · S4: {h.s4} · Année: {h.yearly}
                 </p>
               </div>
@@ -684,7 +700,7 @@ function App() {
     sem.units.forEach(u => u.subjects.forEach(s => {
       const a = subjectAvg(s);
       pts += a * s.coef; coefs += s.coef;
-      if (a >= 10) earnedCredits += s.credits;
+      if (isPassingValue(a)) earnedCredits += s.credits;
       const hasAny = s.fields.some(f => grades[s.id]?.[f] !== '' && grades[s.id]?.[f] !== undefined);
       s.fields.forEach(f => { totalFields++; if (grades[s.id]?.[f] !== '' && grades[s.id]?.[f] !== undefined) filled++; });
       if (hasAny) {
@@ -694,12 +710,12 @@ function App() {
     }));
     const avg = coefs ? pts / coefs : 0;
     const completion = totalFields ? Math.round((filled / totalFields) * 100) : 0;
-    return { avg: avg.toFixed(2), earnedCredits, totalCredits: sem.credits, completion, best, worst, filled, totalFields };
+    return { avg: formatInfinitesimal(avg), rawAvg: avg, earnedCredits, totalCredits: sem.credits, completion, best, worst, filled, totalFields };
   };
 
   const s3Stats = semesterStats('s3');
   const s4Stats = semesterStats('s4');
-  const secondYearAvg = ((parseFloat(s3Stats.avg) + parseFloat(s4Stats.avg)) / 2).toFixed(2);
+  const secondYearAvg = formatInfinitesimal((s3Stats.rawAvg + s4Stats.rawAvg) / 2);
   const allStats = { s3: s3Stats, s4: s4Stats };
   const totalEarned = s3Stats.earnedCredits + s4Stats.earnedCredits;
 
@@ -865,7 +881,7 @@ function App() {
 
           <div className={`rounded-xl p-3 border mb-3 ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
             <p className={`text-[10px] font-black uppercase ${dimText}`}>Moyenne Annuelle</p>
-            <p className={`text-3xl font-black ${parseFloat(secondYearAvg) >= 10 ? 'text-emerald-500' : 'text-red-500'}`}>{secondYearAvg}</p>
+            <p className={`text-3xl font-black ${isPassingValue(parseFloat(secondYearAvg)) ? 'text-emerald-500' : 'text-red-500'}`}>{secondYearAvg}</p>
             <MentionBadge value={parseFloat(secondYearAvg)} />
           </div>
 
@@ -918,7 +934,7 @@ function App() {
             <div>
               <h2 className="font-black text-base text-emerald-500">{sem.label}</h2>
               <p className={`text-xs ${dimText}`}>
-                Moyenne : <span className={`font-bold ${parseFloat(curStats.avg) >= 10 ? 'text-emerald-500' : 'text-red-500'}`}>{curStats.avg}</span>
+                Moyenne : <span className={`font-bold ${isPassingValue(parseFloat(curStats.avg)) ? 'text-emerald-500' : 'text-red-500'}`}>{curStats.avg}</span>
                 &nbsp;·&nbsp;
                 Crédits : <span className="font-bold">{curStats.earnedCredits}/{sem.credits}</span>
               </p>
@@ -944,12 +960,12 @@ function App() {
             <div className="px-5 pt-3 flex gap-2 flex-wrap">
               {curStats.best && (
                 <div className="flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600">
-                  <i className="fa-solid fa-trophy"></i> Meilleure : {curStats.best.name} ({curStats.best.avg.toFixed(2)})
+                  <i className="fa-solid fa-trophy"></i> Meilleure : {curStats.best.name} ({formatInfinitesimal(curStats.best.avg)})
                 </div>
               )}
               {curStats.worst && curStats.worst.name !== curStats.best?.name && (
                 <div className="flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full bg-red-500/10 text-red-500">
-                  <i className="fa-solid fa-arrow-trend-down"></i> À améliorer : {curStats.worst.name} ({curStats.worst.avg.toFixed(2)})
+                  <i className="fa-solid fa-arrow-trend-down"></i> À améliorer : {curStats.worst.name} ({formatInfinitesimal(curStats.worst.avg)})
                 </div>
               )}
             </div>
@@ -973,7 +989,7 @@ function App() {
             <div key={unit.id} className={`border-b last:border-0 ${rowBorder}`}>
               {unit.subjects.map(s => {
                 const a = subjectAvg(s);
-                const failing = a < 10 && s.fields.some(f => grades[s.id]?.[f] !== '');
+                const failing = !isPassingValue(a) && s.fields.some(f => grades[s.id]?.[f] !== '');
                 const isBest = curStats.best && curStats.best.name === s.name;
                 const isWorst = curStats.worst && curStats.worst.name === s.name && !isBest;
                 return (
@@ -984,7 +1000,7 @@ function App() {
                       <span className={`flex-1 font-semibold text-sm ${subText} text-left leading-tight`}>{s.name}</span>
                       <Tooltip text={`Coefficient : ${s.coef}`}><span className={`w-10 text-center text-xs font-bold ${dimText} cursor-help`}>{s.coef}</span></Tooltip>
                       <Tooltip text={`${s.credits} crédits — acquis si moyenne ≥ 10`}><span className={`w-10 text-center text-xs ${dimText} cursor-help`}>{s.credits}</span></Tooltip>
-                      <span className={`w-16 text-right text-sm font-black ${a >= 10 ? 'text-emerald-500' : failing ? 'text-red-500' : dimText}`}>{a.toFixed(2)}</span>
+                      <span className={`w-16 text-right text-sm font-black ${isPassingValue(a) ? 'text-emerald-500' : failing ? 'text-red-500' : dimText}`}>{formatInfinitesimal(a)}</span>
                     </div>
                     <div className="flex gap-2 flex-wrap no-print">
                       {s.fields.map(f => {
@@ -1004,10 +1020,10 @@ function App() {
                   </div>
                 );
               })}
-              <div className={`flex items-center px-5 py-2.5 ${unitAvg(unit) >= 10 ? (dark ? 'bg-emerald-950/30' : 'bg-emerald-50') : (dark ? 'bg-red-950/30' : 'bg-red-50')}`}>
-                <i className={`fa-solid fa-layer-group text-xs mr-2 ${unitAvg(unit) >= 10 ? 'text-emerald-400' : 'text-red-400'}`}></i>
-                <span className={`flex-1 text-xs font-bold truncate ${unitAvg(unit) >= 10 ? 'text-emerald-600' : 'text-red-500'}`}>{unit.name}</span>
-                <span className={`text-sm font-black ml-2 ${unitAvg(unit) >= 10 ? 'text-emerald-600' : 'text-red-500'}`}>{unitAvg(unit).toFixed(2)}</span>
+              <div className={`flex items-center px-5 py-2.5 ${isPassingValue(unitAvg(unit)) ? (dark ? 'bg-emerald-950/30' : 'bg-emerald-50') : (dark ? 'bg-red-950/30' : 'bg-red-50')}`}>
+                <i className={`fa-solid fa-layer-group text-xs mr-2 ${isPassingValue(unitAvg(unit)) ? 'text-emerald-400' : 'text-red-400'}`}></i>
+                <span className={`flex-1 text-xs font-bold truncate ${isPassingValue(unitAvg(unit)) ? 'text-emerald-600' : 'text-red-500'}`}>{unit.name}</span>
+                <span className={`text-sm font-black ml-2 ${isPassingValue(unitAvg(unit)) ? 'text-emerald-600' : 'text-red-500'}`}>{formatInfinitesimal(unitAvg(unit))}</span>
               </div>
             </div>
           ))}
