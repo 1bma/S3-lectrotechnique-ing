@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="fr">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>حاسبة المعدل S3 & S4 — هندسة كهروتقنية</title>
+  <title>Calculateur de moyenne S3 & S4 — Génie Electrotechnique</title>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" crossorigin></script>
@@ -184,11 +184,11 @@ const loadGrades = () => {
 };
 
 const mention = (n) => {
-  if (n >= 16) return { label: 'ممتاز',    color: 'text-emerald-500', emoji: '🏆' };
-  if (n >= 14) return { label: 'جيد جداً', color: 'text-blue-500',    emoji: '⭐' };
-  if (n >= 12) return { label: 'جيد',      color: 'text-sky-500',     emoji: '👍' };
-  if (n >= 10) return { label: 'مقبول',    color: 'text-yellow-500',  emoji: '✅' };
-  return           { label: 'راسب',      color: 'text-red-500',     emoji: '❌' };
+  if (n >= 16) return { label: 'Excellent',  color: 'text-emerald-500', emoji: '🏆' };
+  if (n >= 14) return { label: 'Très bien',  color: 'text-blue-500',    emoji: '⭐' };
+  if (n >= 12) return { label: 'Bien',       color: 'text-sky-500',     emoji: '👍' };
+  if (n >= 10) return { label: 'Passable',   color: 'text-yellow-500',  emoji: '✅' };
+  return           { label: 'Échec',       color: 'text-red-500',     emoji: '❌' };
 };
 
 const barColor = (v) => {
@@ -243,21 +243,28 @@ function GradeInput({ value, onChange, dark }) {
     setLocal(value === '' ? '' : String(value));
   }, [value]);
 
-  const commit = (v) => {
+  const handleChange = (v) => {
+    setLocal(v);
     if (v === '') { setErr(false); onChange(''); return; }
     const n = parseFloat(v);
     if (isNaN(n) || n < 0 || n > 20) { setErr(true); return; }
     setErr(false);
-    onChange(Math.round(n * 4) / 4); // snap to 0.25
+    onChange(n); // live update on every keystroke
+  };
+
+  const handleBlur = (v) => {
+    if (v === '' || isNaN(parseFloat(v))) return;
+    const snapped = Math.round(parseFloat(v) * 4) / 4; // snap to 0.25 on blur
+    setLocal(String(snapped));
+    onChange(snapped);
   };
 
   return (
     <input
       type="number" min="0" max="20" step="0.25"
       value={local}
-      onChange={e => { setLocal(e.target.value); setErr(false); }}
-      onBlur={e => commit(e.target.value)}
-      onKeyDown={e => e.key === 'Enter' && commit(local)}
+      onChange={e => handleChange(e.target.value)}
+      onBlur={e => handleBlur(e.target.value)}
       className={`
         w-16 text-center font-bold px-1.5 py-1.5 rounded-lg text-sm outline-none
         transition-all focus:ring-2
@@ -303,12 +310,12 @@ function App() {
       )
     );
     setGrades(next);
-    showToast(`✅ تم مسح ${SEMESTER_DATA[semKey].label}`);
+    showToast(`✅ ${SEMESTER_DATA[semKey].label} réinitialisé`);
   };
 
   const resetAll = () => {
     setGrades(initGrades());
-    showToast('🗑️ تم مسح جميع الدرجات');
+    showToast('🗑️ Toutes les notes effacées');
   };
 
   /* Calc */
@@ -360,11 +367,11 @@ function App() {
           </div>
           <div>
             <p className="font-black text-sm leading-tight">Academic Transcripts</p>
-            <p className="text-[10px] text-emerald-200 leading-tight">جامعة البليدة 1 · هندسة كهروتقنية</p>
+            <p className="text-[10px] text-emerald-200 leading-tight">Univ. Blida 1 · Génie Electrotechnique</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={resetAll} title="مسح الكل"
+          <button onClick={resetAll} title="Réinitialiser tout"
             className="p-2 rounded-xl bg-emerald-700/60 hover:bg-red-600 transition-all text-xs">
             <i className="fa-solid fa-trash-can"></i>
           </button>
@@ -380,7 +387,7 @@ function App() {
         {/* ── YEARLY BANNER ── */}
         <div className={`rounded-2xl mb-5 p-4 border ${card} shadow-md`}>
           <div className="flex items-center justify-between mb-3">
-            <span className={`text-xs font-bold uppercase tracking-widest ${dimText}`}>Année 2</span>
+            <span className={`text-xs font-bold uppercase tracking-widest ${dimText}`}>2ème Année</span>
             <span className={`text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500`}>
               {totalEarned} / 60 crédits
             </span>
@@ -444,11 +451,11 @@ function App() {
             </div>
             <div className="flex items-center gap-2">
               <MentionBadge value={parseFloat(curStats.avg)} />
-              <button onClick={() => resetSemester(tab)} title="مسح هذا السيمستر"
+              <button onClick={() => resetSemester(tab)} title="Réinitialiser ce semestre"
                 className={`text-xs px-2.5 py-1.5 rounded-lg border font-bold transition-all hover:bg-red-500 hover:text-white hover:border-red-500 ${
                   dark ? 'border-gray-700 text-gray-400' : 'border-gray-300 text-gray-400'
                 }`}>
-                <i className="fa-solid fa-rotate-left mr-1"></i>مسح
+                <i className="fa-solid fa-rotate-left mr-1"></i>Reset
               </button>
             </div>
           </div>
@@ -482,15 +489,15 @@ function App() {
                     {/* Subject row */}
                     <div className="flex items-center gap-1 mb-2" dir="ltr">
                       {failing && (
-                        <Tooltip text="أقل من 10 — مادة مرسّبة">
+                        <Tooltip text="Note < 10 — Module non validé">
                           <span className="text-red-400 text-xs mr-1 cursor-help"><i className="fa-solid fa-circle-exclamation"></i></span>
                         </Tooltip>
                       )}
                       <span className={`flex-1 font-semibold text-sm ${subText} text-left leading-tight`}>{s.name}</span>
-                      <Tooltip text={`المعامل: ${s.coef} — يؤثر على الحساب`}>
+                      <Tooltip text={`Coefficient : ${s.coef}`}>
                         <span className={`w-10 text-center text-xs font-bold ${dimText} cursor-help`}>{s.coef}</span>
                       </Tooltip>
-                      <Tooltip text={`${s.credits} crédits — يُكتسب إذا ≥ 10`}>
+                      <Tooltip text={`${s.credits} crédits — acquis si moyenne ≥ 10`}>
                         <span className={`w-10 text-center text-xs ${dimText} cursor-help`}>{s.credits}</span>
                       </Tooltip>
                       <span className={`w-16 text-right text-sm font-black ${a >= 10 ? 'text-emerald-500' : failing ? 'text-red-500' : dimText}`}>
@@ -536,9 +543,9 @@ function App() {
         {/* ── STATS ROW ── */}
         <div className="grid grid-cols-3 gap-3 mb-6">
           {[
-            { label: 'معدل S3', value: s3Stats.avg,  sub: `${s3Stats.earnedCredits}/${SEMESTER_DATA.s3.credits} cr` },
-            { label: 'معدل S4', value: s4Stats.avg,  sub: `${s4Stats.earnedCredits}/${SEMESTER_DATA.s4.credits} cr` },
-            { label: 'المعدل السنوي', value: yearlyAvg, sub: `${totalEarned}/60 cr`, hero: true },
+            { label: 'Moyenne S3', value: s3Stats.avg,  sub: `${s3Stats.earnedCredits}/${SEMESTER_DATA.s3.credits} cr` },
+            { label: 'Moyenne S4', value: s4Stats.avg,  sub: `${s4Stats.earnedCredits}/${SEMESTER_DATA.s4.credits} cr` },
+            { label: 'Moyenne Annuelle', value: yearlyAvg, sub: `${totalEarned}/60 cr`, hero: true },
           ].map(({ label, value, sub, hero }) => {
             const m = mention(parseFloat(value));
             return (
@@ -558,14 +565,14 @@ function App() {
 
         {/* ── LEGEND ── */}
         <div className={`${card} border rounded-2xl p-4 mb-6 shadow-sm`}>
-          <p className={`text-[10px] font-black uppercase tracking-widest mb-3 ${dimText}`}>نظام التقدير</p>
+          <p className={`text-[10px] font-black uppercase tracking-widest mb-3 ${dimText}`}>Système de notation</p>
           <div className="grid grid-cols-2 gap-y-1.5 gap-x-4" dir="ltr">
             {[
-              { range: '16 – 20', label: 'Excellent  ممتاز',    color: 'bg-emerald-500' },
-              { range: '14 – 15', label: 'Très bien  جيد جداً', color: 'bg-blue-500' },
-              { range: '12 – 13', label: 'Bien       جيد',      color: 'bg-sky-500' },
-              { range: '10 – 11', label: 'Passable   مقبول',    color: 'bg-yellow-500' },
-              { range: '0  –  9', label: 'Échec      راسب',     color: 'bg-red-500' },
+              { range: '16 – 20', label: 'Excellent',  color: 'bg-emerald-500' },
+              { range: '14 – 15', label: 'Très bien',  color: 'bg-blue-500' },
+              { range: '12 – 13', label: 'Bien',       color: 'bg-sky-500' },
+              { range: '10 – 11', label: 'Passable',   color: 'bg-yellow-500' },
+              { range: '0  –  9', label: 'Échec',      color: 'bg-red-500' },
             ].map(r => (
               <div key={r.range} className="flex items-center gap-2">
                 <span className={`w-2 h-2 rounded-full flex-shrink-0 ${r.color}`}></span>
@@ -581,10 +588,10 @@ function App() {
           <a href="https://t.me/uubma" target="_blank" rel="noopener noreferrer"
             className="inline-flex items-center gap-2 bg-blue-500 hover:bg-blue-600 active:scale-95 text-white font-bold px-6 py-3 rounded-2xl shadow-md transition-all text-sm">
             <i className="fa-brands fa-telegram text-lg"></i>
-            تواصل معي على تلغرام
+            Me contacter sur Telegram
           </a>
           <p className={`text-[10px] mt-3 font-semibold tracking-wide ${dimText}`}>
-            البيانات محفوظة تلقائياً في متصفحك · جامعة البليدة 1
+            Données sauvegardées automatiquement · Univ. Blida 1
           </p>
         </div>
       </div>
