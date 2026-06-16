@@ -3,23 +3,21 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Calculateur de moyenne S3 & S4 — Génie Electrotechnique</title>
+  <title>Calculateur de moyenne S1-S4 — Génie Electrotechnique</title>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone@7.22.20/babel.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=Tajawal:wght@400;500;700;900&display=swap');
 
     * { box-sizing: border-box; }
-
-    body {
-      font-family: 'Tajawal', 'Inter', sans-serif;
-      margin: 0;
-    }
+    body { font-family: 'Tajawal', 'Inter', sans-serif; margin: 0; direction: ltr; }
 
     :root {
       --accent: #10b981;
@@ -27,19 +25,15 @@
       --accent-light: #d1fae5;
     }
 
-    /* Number inputs */
     input[type=number]::-webkit-inner-spin-button,
     input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
     input[type=number] { -moz-appearance: textfield; }
 
-    /* Smooth transitions */
     .fade-in { animation: fadeIn 0.25s ease; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
-    /* Progress bar animation */
     .bar-fill { transition: width 0.6s cubic-bezier(.4,0,.2,1); }
 
-    /* Toast */
     .toast {
       position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
       background: #1f2937; color: #fff; padding: 0.65rem 1.4rem;
@@ -47,11 +41,11 @@
       box-shadow: 0 4px 20px rgba(0,0,0,0.25);
       z-index: 9999; pointer-events: none;
       animation: toastIn 0.3s ease, toastOut 0.3s ease 1.7s forwards;
+      display: flex; align-items: center; gap: 0.5rem;
     }
     @keyframes toastIn  { from { opacity:0; bottom:0.5rem } to { opacity:1; bottom:1.5rem } }
     @keyframes toastOut { from { opacity:1 } to { opacity:0 } }
 
-    /* Tooltip */
     .tip-wrap { position: relative; display: inline-block; }
     .tip-wrap:hover .tip-box { opacity:1; pointer-events:auto; }
     .tip-box {
@@ -67,22 +61,51 @@
       border:5px solid transparent; border-top-color:#1f2937;
     }
 
-    /* Scrollbar */
     ::-webkit-scrollbar { width: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #10b981; border-radius: 99px; }
+
+    .save-pulse {
+      animation: savePulse 0.5s ease;
+    }
+    @keyframes savePulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.15); }
+      100% { transform: scale(1); }
+    }
+
+    .best-glow { box-shadow: 0 0 0 2px #10b981 inset; }
+    .worst-glow { box-shadow: 0 0 0 2px #ef4444 inset; }
+
+    /* PRINT STYLES */
+    @media print {
+      body { background: white !important; }
+      .no-print { display: none !important; }
+      .print-only { display: block !important; }
+      .print-card {
+        box-shadow: none !important;
+        border: 1px solid #ddd !important;
+        break-inside: avoid;
+      }
+      .print-page-break { break-after: page; }
+      header { position: static !important; }
+      * { color: black !important; background: white !important; }
+      .print-keep-color { color: inherit !important; }
+    }
+    .print-only { display: none; }
   </style>
 </head>
 <body>
 <div id="root"></div>
 
 <script type="text/babel">
-const { useState, useEffect, useCallback } = React;
+const { useState, useEffect, useCallback, useRef, useMemo } = React;
 
 /* ─── DATA ─────────────────────────────────────────────────── */
 const SEMESTER_DATA = {
   s3: {
     label: 'Semestre 03',
+    year: '2ème Année',
     credits: 30,
     units: [
       {
@@ -118,6 +141,7 @@ const SEMESTER_DATA = {
   },
   s4: {
     label: 'Semestre 04',
+    year: '2ème Année',
     credits: 30,
     units: [
       {
@@ -160,6 +184,8 @@ const SEMESTER_DATA = {
 };
 
 const FIELD_LABELS = { td: 'TD', tp: 'TP', exam: 'Examen' };
+const FIELD_ORDER = ['td', 'tp', 'exam'];
+const STORAGE_KEY = 'uubma_grades_v3';
 
 /* ─── HELPERS ───────────────────────────────────────────────── */
 const initGrades = () => {
@@ -175,10 +201,26 @@ const initGrades = () => {
   return g;
 };
 
+const storageAvailable = () => {
+  try {
+    const test = '__storage_test__';
+    localStorage.setItem(test, test);
+    localStorage.removeItem(test);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 const loadGrades = () => {
   try {
-    const saved = localStorage.getItem('uubma_grades_v2');
-    if (saved) return JSON.parse(saved);
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // merge with init to handle new subjects added later
+      const base = initGrades();
+      return { ...base, ...parsed };
+    }
   } catch {}
   return initGrades();
 };
@@ -205,10 +247,7 @@ function ProgressBar({ value, dark }) {
   const pct = Math.min(100, (value / 20) * 100);
   return (
     <div className={`w-full rounded-full h-2 mt-1.5 ${dark ? 'bg-gray-700' : 'bg-gray-200'}`}>
-      <div
-        className={`bar-fill h-2 rounded-full ${barColor(value)}`}
-        style={{ width: `${pct}%` }}
-      />
+      <div className={`bar-fill h-2 rounded-full ${barColor(value)}`} style={{ width: `${pct}%` }} />
     </div>
   );
 }
@@ -231,17 +270,15 @@ function Tooltip({ text, children }) {
   );
 }
 
-function Toast({ msg }) {
-  return <div className="toast">{msg}</div>;
+function Toast({ msg, icon }) {
+  return <div className="toast">{icon && <i className={`fa-solid ${icon}`}></i>}{msg}</div>;
 }
 
-function GradeInput({ value, onChange, dark }) {
+function GradeInput({ value, onChange, dark, inputRef, onKeyNav }) {
   const [local, setLocal] = useState(value === '' ? '' : String(value));
   const [err, setErr] = useState(false);
 
-  useEffect(() => {
-    setLocal(value === '' ? '' : String(value));
-  }, [value]);
+  useEffect(() => { setLocal(value === '' ? '' : String(value)); }, [value]);
 
   const handleChange = (v) => {
     setLocal(v);
@@ -249,22 +286,37 @@ function GradeInput({ value, onChange, dark }) {
     const n = parseFloat(v);
     if (isNaN(n) || n < 0 || n > 20) { setErr(true); return; }
     setErr(false);
-    onChange(n); // live update on every keystroke
+    onChange(n);
   };
 
   const handleBlur = (v) => {
     if (v === '' || isNaN(parseFloat(v))) return;
-    const snapped = Math.round(parseFloat(v) * 4) / 4; // snap to 0.25 on blur
+    const snapped = Math.round(parseFloat(v) * 4) / 4;
     setLocal(String(snapped));
     onChange(snapped);
   };
 
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      onKeyNav && onKeyNav(1);
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      onKeyNav && onKeyNav(1);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      onKeyNav && onKeyNav(-1);
+    }
+  };
+
   return (
     <input
+      ref={inputRef}
       type="number" min="0" max="20" step="0.25"
       value={local}
       onChange={e => handleChange(e.target.value)}
       onBlur={e => handleBlur(e.target.value)}
+      onKeyDown={handleKeyDown}
       className={`
         w-16 text-center font-bold px-1.5 py-1.5 rounded-lg text-sm outline-none
         transition-all focus:ring-2
@@ -286,21 +338,49 @@ function App() {
   const [tab, setTab]   = useState('s3');
   const [grades, setGrades] = useState(loadGrades);
   const [toast, setToast]   = useState(null);
+  const [saveOk, setSaveOk] = useState(true);
+  const [savedPulse, setSavedPulse] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
-  /* Auto-save */
+  const printRef = useRef(null);
+  const inputRefs = useRef({});
+
+  /* Auto-save with fallback detection */
   useEffect(() => {
-    try { localStorage.setItem('uubma_grades_v2', JSON.stringify(grades)); }
-    catch {}
+    if (!storageAvailable()) { setSaveOk(false); return; }
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(grades));
+      setSaveOk(true);
+      setSavedPulse(true);
+      const t = setTimeout(() => setSavedPulse(false), 500);
+      return () => clearTimeout(t);
+    } catch {
+      setSaveOk(false);
+      showToast('Stockage plein — données non sauvegardées', 'fa-triangle-exclamation');
+    }
   }, [grades]);
 
-  const showToast = (msg) => {
-    setToast(msg);
+  const showToast = (msg, icon) => {
+    setToast({ msg, icon });
     setTimeout(() => setToast(null), 2000);
   };
 
   const handleChange = useCallback((id, field, val) => {
     setGrades(p => ({ ...p, [id]: { ...p[id], [field]: val } }));
   }, []);
+
+  const manualSave = () => {
+    if (!storageAvailable()) {
+      showToast('Stockage indisponible sur cet appareil', 'fa-circle-xmark');
+      return;
+    }
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(grades));
+      showToast('Notes sauvegardées avec succès', 'fa-circle-check');
+    } catch {
+      showToast('Échec de la sauvegarde — stockage plein', 'fa-triangle-exclamation');
+    }
+  };
 
   const resetSemester = (semKey) => {
     const next = { ...grades };
@@ -310,15 +390,38 @@ function App() {
       )
     );
     setGrades(next);
-    showToast(`✅ ${SEMESTER_DATA[semKey].label} réinitialisé`);
+    showToast(`${SEMESTER_DATA[semKey].label} réinitialisé`, 'fa-rotate-left');
   };
 
   const resetAll = () => {
     setGrades(initGrades());
-    showToast('🗑️ Toutes les notes effacées');
+    showToast('Toutes les notes effacées', 'fa-trash-can');
   };
 
-  /* Calc */
+  /* ── Keyboard navigation: build flat order of input keys per semester ── */
+  const getFlatInputKeys = (semKey) => {
+    const keys = [];
+    SEMESTER_DATA[semKey].units.forEach(u =>
+      u.subjects.forEach(s =>
+        s.fields.forEach(f => keys.push(`${s.id}__${f}`))
+      )
+    );
+    return keys;
+  };
+
+  const focusInput = (semKey, currentKey, direction) => {
+    const flat = getFlatInputKeys(semKey);
+    const idx = flat.indexOf(currentKey);
+    if (idx === -1) return;
+    const nextIdx = idx + direction;
+    if (nextIdx >= 0 && nextIdx < flat.length) {
+      const nextKey = flat[nextIdx];
+      const el = inputRefs.current[nextKey];
+      if (el) { el.focus(); el.select && el.select(); }
+    }
+  };
+
+  /* ── Calculations ── */
   const subjectAvg = (s) =>
     s.fields.reduce((sum, f) => sum + (parseFloat(grades[s.id]?.[f]) || 0) * s.weights[f], 0);
 
@@ -331,21 +434,81 @@ function App() {
   const semesterStats = (semKey) => {
     const sem = SEMESTER_DATA[semKey];
     let pts = 0, coefs = 0, earnedCredits = 0;
+    let filled = 0, totalFields = 0;
+    let best = null, worst = null;
+
     sem.units.forEach(u => u.subjects.forEach(s => {
       const a = subjectAvg(s);
       pts += a * s.coef; coefs += s.coef;
       if (a >= 10) earnedCredits += s.credits;
+
+      const hasAny = s.fields.some(f => grades[s.id]?.[f] !== '' && grades[s.id]?.[f] !== undefined);
+      s.fields.forEach(f => {
+        totalFields++;
+        if (grades[s.id]?.[f] !== '' && grades[s.id]?.[f] !== undefined) filled++;
+      });
+
+      if (hasAny) {
+        if (!best || a > best.avg) best = { name: s.name, avg: a };
+        if (!worst || a < worst.avg) worst = { name: s.name, avg: a };
+      }
     }));
+
     const avg = coefs ? pts / coefs : 0;
-    return { avg: avg.toFixed(2), earnedCredits, totalCredits: sem.credits };
+    const completion = totalFields ? Math.round((filled / totalFields) * 100) : 0;
+    return { avg: avg.toFixed(2), earnedCredits, totalCredits: sem.credits, completion, best, worst, filled, totalFields };
   };
 
   const s3Stats = semesterStats('s3');
   const s4Stats = semesterStats('s4');
-  const yearlyAvg = ((parseFloat(s3Stats.avg) + parseFloat(s4Stats.avg)) / 2).toFixed(2);
+
+  const secondYearAvg = ((parseFloat(s3Stats.avg) + parseFloat(s4Stats.avg)) / 2).toFixed(2);
+
+  const allStats = { s3: s3Stats, s4: s4Stats };
   const totalEarned = s3Stats.earnedCredits + s4Stats.earnedCredits;
 
-  /* Theme tokens */
+  /* ── Export PDF ── */
+  const exportPDF = async () => {
+    if (!printRef.current) return;
+    setExporting(true);
+    showToast('Génération du PDF...', 'fa-file-pdf');
+    try {
+      const canvas = await html2canvas(printRef.current, {
+        scale: 2,
+        backgroundColor: dark ? '#030712' : '#f1f5f9',
+        useCORS: true,
+      });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jspdf.jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pageWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      pdf.save(`Releve_Notes_${SEMESTER_DATA[tab].label.replace(' ', '_')}.pdf`);
+      showToast('PDF téléchargé avec succès', 'fa-circle-check');
+    } catch (err) {
+      showToast('Erreur lors de la génération du PDF', 'fa-circle-xmark');
+    }
+    setExporting(false);
+  };
+
+  const printPage = () => { window.print(); };
+
+  /* ── Theme tokens ── */
   const bg      = dark ? 'bg-gray-950 text-white'  : 'bg-slate-100 text-gray-900';
   const card    = dark ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200';
   const subText = dark ? 'text-gray-200' : 'text-gray-800';
@@ -354,13 +517,15 @@ function App() {
   const failRow   = dark ? 'bg-red-950/30'  : 'bg-red-50/60';
 
   const sem = SEMESTER_DATA[tab];
-  const curStats = tab === 's3' ? s3Stats : s4Stats;
+  const curStats = allStats[tab];
+
+  const tabOrder = ['s3', 's4'];
 
   return (
     <div className={`min-h-screen ${bg} transition-colors duration-300 pb-14`}>
 
       {/* ── HEADER ── */}
-      <header className="bg-emerald-600 text-white px-5 py-4 flex items-center justify-between shadow-lg sticky top-0 z-40">
+      <header className="no-print bg-emerald-600 text-white px-5 py-4 flex items-center justify-between shadow-lg sticky top-0 z-40">
         <div className="flex items-center gap-2.5">
           <div className="bg-emerald-500 rounded-xl p-1.5">
             <i className="fa-solid fa-graduation-cap text-lg"></i>
@@ -371,73 +536,105 @@ function App() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={resetAll} title="Réinitialiser tout"
-            className="p-2 rounded-xl bg-emerald-700/60 hover:bg-red-600 transition-all text-xs">
-            <i className="fa-solid fa-trash-can"></i>
-          </button>
-          <button onClick={() => setDark(!dark)}
-            className="p-2 rounded-xl bg-emerald-700/60 hover:bg-emerald-800 transition-all">
+          <Tooltip text="Sauvegarder maintenant">
+            <button onClick={manualSave} className={`p-2 rounded-xl bg-emerald-700/60 hover:bg-emerald-800 transition-all ${savedPulse ? 'save-pulse' : ''}`}>
+              <i className={`fa-solid ${saveOk ? 'fa-cloud-arrow-up' : 'fa-triangle-exclamation text-yellow-300'}`}></i>
+            </button>
+          </Tooltip>
+          <Tooltip text="Exporter en PDF">
+            <button onClick={exportPDF} disabled={exporting} className="p-2 rounded-xl bg-emerald-700/60 hover:bg-emerald-800 transition-all disabled:opacity-50">
+              <i className={`fa-solid ${exporting ? 'fa-spinner fa-spin' : 'fa-file-pdf'}`}></i>
+            </button>
+          </Tooltip>
+          <Tooltip text="Imprimer">
+            <button onClick={printPage} className="p-2 rounded-xl bg-emerald-700/60 hover:bg-emerald-800 transition-all">
+              <i className="fa-solid fa-print"></i>
+            </button>
+          </Tooltip>
+          <Tooltip text="Réinitialiser tout">
+            <button onClick={resetAll} className="p-2 rounded-xl bg-emerald-700/60 hover:bg-red-600 transition-all">
+              <i className="fa-solid fa-trash-can"></i>
+            </button>
+          </Tooltip>
+          <button onClick={() => setDark(!dark)} className="p-2 rounded-xl bg-emerald-700/60 hover:bg-emerald-800 transition-all">
             <i className={`fa-solid ${dark ? 'fa-sun text-yellow-300' : 'fa-moon'}`}></i>
           </button>
         </div>
       </header>
 
-      <div className="max-w-2xl mx-auto px-4 pt-5">
+      <div ref={printRef} className="max-w-2xl mx-auto px-4 pt-5">
+
+        {/* Print-only title */}
+        <div className="print-only mb-4 text-center">
+          <h1 className="text-xl font-black">Relevé de Notes — {sem.label}</h1>
+          <p className="text-xs text-gray-500">Université Blida 1 · Génie Electrotechnique · {sem.year}</p>
+        </div>
+
+        {/* ── SAVE STATUS BANNER (if storage unavailable) ── */}
+        {!saveOk && (
+          <div className="no-print mb-3 rounded-xl bg-red-500/10 border border-red-400 text-red-500 text-xs font-bold px-4 py-2 flex items-center gap-2">
+            <i className="fa-solid fa-triangle-exclamation"></i>
+            Stockage local indisponible — vos notes ne seront pas sauvegardées après fermeture
+          </div>
+        )}
 
         {/* ── YEARLY BANNER ── */}
-        <div className={`rounded-2xl mb-5 p-4 border ${card} shadow-md`}>
+        <div className={`rounded-2xl mb-5 p-4 border ${card} shadow-md print-card`}>
           <div className="flex items-center justify-between mb-3">
             <span className={`text-xs font-bold uppercase tracking-widest ${dimText}`}>2ème Année</span>
-            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500`}>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500">
               {totalEarned} / 60 crédits
             </span>
           </div>
-          <div className="flex items-end justify-between gap-3">
-            <div>
-              <p className={`text-4xl font-black ${parseFloat(yearlyAvg) >= 10 ? 'text-emerald-500' : 'text-red-500'}`}>
-                {yearlyAvg}
-                <span className={`text-sm font-bold ml-1 ${dimText}`}>/20</span>
-              </p>
-              <MentionBadge value={parseFloat(yearlyAvg)} />
-            </div>
-            <div className="flex gap-4 text-center">
-              {['s3','s4'].map(k => {
-                const st = k === 's3' ? s3Stats : s4Stats;
-                const m = mention(parseFloat(st.avg));
-                return (
-                  <div key={k} onClick={() => setTab(k)}
-                    className={`cursor-pointer rounded-xl px-3 py-2 transition-all border-2 ${
-                      tab === k
-                        ? 'border-emerald-500 bg-emerald-500/10'
-                        : dark ? 'border-gray-700 hover:border-gray-600' : 'border-gray-200 hover:border-gray-300'
-                    }`}>
-                    <p className={`text-[10px] font-bold uppercase ${dimText}`}>{k.toUpperCase()}</p>
-                    <p className={`text-lg font-black ${m.color}`}>{st.avg}</p>
-                    <p className={`text-[9px] ${dimText}`}>{st.earnedCredits}/{SEMESTER_DATA[k].credits} cr</p>
-                  </div>
-                );
-              })}
-            </div>
+
+          <div className="rounded-xl p-3 border mb-3 ${dark ? 'border-gray-700' : 'border-gray-200'}">
+            <p className={`text-[10px] font-black uppercase ${dimText}`}>Moyenne Annuelle</p>
+            <p className={`text-3xl font-black ${parseFloat(secondYearAvg) >= 10 ? 'text-emerald-500' : 'text-red-500'}`}>{secondYearAvg}</p>
+            <MentionBadge value={parseFloat(secondYearAvg)} />
           </div>
-          <ProgressBar value={parseFloat(yearlyAvg)} dark={dark} />
+
+          <div className="flex gap-2 flex-wrap">
+            {tabOrder.map(k => {
+              const st = allStats[k];
+              const m = mention(parseFloat(st.avg));
+              return (
+                <button key={k} onClick={() => setTab(k)}
+                  className={`no-print flex-1 min-w-[70px] cursor-pointer rounded-xl px-2 py-2 transition-all border-2 ${
+                    tab === k
+                      ? 'border-emerald-500 bg-emerald-500/10'
+                      : dark ? 'border-gray-700 hover:border-gray-600' : 'border-gray-200 hover:border-gray-300'
+                  }`}>
+                  <p className={`text-[10px] font-bold uppercase ${dimText}`}>{k.toUpperCase()}</p>
+                  <p className={`text-lg font-black ${m.color}`}>{st.avg}</p>
+                  <p className={`text-[9px] ${dimText}`}>{st.earnedCredits}/{SEMESTER_DATA[k].credits} cr</p>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <div className={`flex-1 h-1 rounded-full ${dark ? 'bg-gray-700' : 'bg-gray-200'}`}>
+                      <div className="h-1 rounded-full bg-emerald-400" style={{ width: `${st.completion}%` }}></div>
+                    </div>
+                    <span className={`text-[8px] ${dimText}`}>{st.completion}%</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* ── TABS ── */}
-        <div className={`flex gap-3 mb-4 p-1 rounded-2xl border ${card} shadow-sm`}>
-          {['s3','s4'].map(s => (
+        <div className={`no-print flex gap-2 mb-4 p-1 rounded-2xl border ${card} shadow-sm`}>
+          {tabOrder.map(s => (
             <button key={s} onClick={() => setTab(s)}
-              className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all ${
+              className={`flex-1 py-2.5 rounded-xl font-bold text-xs transition-all ${
                 tab === s
                   ? 'bg-emerald-600 text-white shadow-md'
                   : dark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-800'
               }`}>
-              {SEMESTER_DATA[s].label}
+              {SEMESTER_DATA[s].label.replace('Semestre 0', 'S')}
             </button>
           ))}
         </div>
 
         {/* ── SEMESTER CARD ── */}
-        <div className={`${card} rounded-2xl shadow-lg border overflow-hidden mb-5 fade-in`} key={tab}>
+        <div className={`${card} rounded-2xl shadow-lg border overflow-hidden mb-5 fade-in print-card`} key={tab}>
 
           {/* Card header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-current/5">
@@ -449,7 +646,7 @@ function App() {
                 Crédits : <span className="font-bold">{curStats.earnedCredits}/{sem.credits}</span>
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 no-print">
               <MentionBadge value={parseFloat(curStats.avg)} />
               <button onClick={() => resetSemester(tab)} title="Réinitialiser ce semestre"
                 className={`text-xs px-2.5 py-1.5 rounded-lg border font-bold transition-all hover:bg-red-500 hover:text-white hover:border-red-500 ${
@@ -460,10 +657,39 @@ function App() {
             </div>
           </div>
 
+          {/* Completion indicator */}
+          <div className="no-print px-5 pt-3 flex items-center gap-2">
+            <i className={`fa-solid fa-list-check text-xs ${dimText}`}></i>
+            <span className={`text-[11px] font-bold ${dimText}`}>
+              Saisie : {curStats.filled}/{curStats.totalFields} notes ({curStats.completion}%)
+            </span>
+            <div className={`flex-1 h-1.5 rounded-full ${dark ? 'bg-gray-700' : 'bg-gray-200'}`}>
+              <div className="h-1.5 rounded-full bg-emerald-400 transition-all" style={{ width: `${curStats.completion}%` }}></div>
+            </div>
+          </div>
+
+          {/* Best / Worst */}
+          {(curStats.best || curStats.worst) && (
+            <div className="px-5 pt-3 flex gap-2 flex-wrap">
+              {curStats.best && (
+                <div className="flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600">
+                  <i className="fa-solid fa-trophy"></i>
+                  Meilleure : {curStats.best.name} ({curStats.best.avg.toFixed(2)})
+                </div>
+              )}
+              {curStats.worst && curStats.worst.name !== curStats.best?.name && (
+                <div className="flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full bg-red-500/10 text-red-500">
+                  <i className="fa-solid fa-arrow-trend-down"></i>
+                  À améliorer : {curStats.worst.name} ({curStats.worst.avg.toFixed(2)})
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Progress */}
           <div className="px-5 pt-3 pb-1">
             <ProgressBar value={parseFloat(curStats.avg)} dark={dark} />
-            <div className="flex justify-between text-[9px] font-bold mt-1" style={{direction:'ltr'}}>
+            <div className="flex justify-between text-[9px] font-bold mt-1">
               <span className="text-red-400">0</span>
               <span className="text-yellow-400">10</span>
               <span className="text-emerald-400">20</span>
@@ -471,7 +697,7 @@ function App() {
           </div>
 
           {/* Column labels */}
-          <div className={`flex text-[10px] font-bold uppercase tracking-wider ${dimText} px-5 pt-3 pb-2 border-b ${rowBorder}`} dir="ltr">
+          <div className={`flex text-[10px] font-bold uppercase tracking-wider ${dimText} px-5 pt-3 pb-2 border-b ${rowBorder}`}>
             <span className="flex-1 text-left">Module</span>
             <span className="w-10 text-center">Coef</span>
             <span className="w-10 text-center">Cr</span>
@@ -484,10 +710,18 @@ function App() {
               {unit.subjects.map(s => {
                 const a = subjectAvg(s);
                 const failing = a < 10 && s.fields.some(f => grades[s.id]?.[f] !== '');
+                const isBest = curStats.best && curStats.best.name === s.name;
+                const isWorst = curStats.worst && curStats.worst.name === s.name && !isBest;
+
                 return (
-                  <div key={s.id} className={`px-5 py-3 border-b last:border-0 ${rowBorder} ${failing ? failRow : ''} transition-colors`}>
+                  <div key={s.id} className={`px-5 py-3 border-b last:border-0 ${rowBorder} ${failing ? failRow : ''} ${isBest ? 'best-glow' : ''} ${isWorst ? 'worst-glow' : ''} transition-colors rounded-lg`}>
                     {/* Subject row */}
-                    <div className="flex items-center gap-1 mb-2" dir="ltr">
+                    <div className="flex items-center gap-1 mb-2">
+                      {isBest && (
+                        <Tooltip text="Meilleure moyenne du semestre">
+                          <span className="text-emerald-500 text-xs mr-0.5 cursor-help"><i className="fa-solid fa-trophy"></i></span>
+                        </Tooltip>
+                      )}
                       {failing && (
                         <Tooltip text="Note < 10 — Module non validé">
                           <span className="text-red-400 text-xs mr-1 cursor-help"><i className="fa-solid fa-circle-exclamation"></i></span>
@@ -506,18 +740,30 @@ function App() {
                     </div>
 
                     {/* Inputs */}
-                    <div className="flex gap-2 flex-wrap" dir="ltr">
+                    <div className="flex gap-2 flex-wrap no-print">
+                      {s.fields.map(f => {
+                        const key = `${s.id}__${f}`;
+                        return (
+                          <div key={f} className={`flex flex-col items-start rounded-xl p-2 border ${dark ? 'bg-gray-800/60 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                            <span className={`text-[9px] font-black uppercase mb-1 ${dimText}`}>
+                              {FIELD_LABELS[f]} <span className="opacity-60">({(s.weights[f]*100).toFixed(0)}%)</span>
+                            </span>
+                            <GradeInput
+                              value={grades[s.id]?.[f] ?? ''}
+                              onChange={v => handleChange(s.id, f, v)}
+                              dark={dark}
+                              inputRef={el => { inputRefs.current[key] = el; }}
+                              onKeyNav={(dir) => focusInput(tab, key, dir)}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Print-only grade summary */}
+                    <div className="print-only flex gap-3 text-xs">
                       {s.fields.map(f => (
-                        <div key={f} className={`flex flex-col items-start rounded-xl p-2 border ${dark ? 'bg-gray-800/60 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
-                          <span className={`text-[9px] font-black uppercase mb-1 ${dimText}`}>
-                            {FIELD_LABELS[f]} <span className="opacity-60">({(s.weights[f]*100).toFixed(0)}%)</span>
-                          </span>
-                          <GradeInput
-                            value={grades[s.id]?.[f] ?? ''}
-                            onChange={v => handleChange(s.id, f, v)}
-                            dark={dark}
-                          />
-                        </div>
+                        <span key={f}>{FIELD_LABELS[f]}: {grades[s.id]?.[f] || '—'}</span>
                       ))}
                     </div>
                   </div>
@@ -529,7 +775,7 @@ function App() {
                 unitAvg(unit) >= 10
                   ? dark ? 'bg-emerald-950/30' : 'bg-emerald-50'
                   : dark ? 'bg-red-950/30'     : 'bg-red-50'
-              }`} dir="ltr">
+              }`}>
                 <i className={`fa-solid fa-layer-group text-xs mr-2 ${unitAvg(unit) >= 10 ? 'text-emerald-400' : 'text-red-400'}`}></i>
                 <span className={`flex-1 text-xs font-bold truncate ${unitAvg(unit) >= 10 ? 'text-emerald-600' : 'text-red-500'}`}>{unit.name}</span>
                 <span className={`text-sm font-black ml-2 ${unitAvg(unit) >= 10 ? 'text-emerald-600' : 'text-red-500'}`}>
@@ -541,32 +787,41 @@ function App() {
         </div>
 
         {/* ── STATS ROW ── */}
-        <div className="grid grid-cols-3 gap-3 mb-6">
+        <div className="grid grid-cols-2 gap-3 mb-3 no-print">
+          {tabOrder.map(k => {
+            const st = allStats[k];
+            const m = mention(parseFloat(st.avg));
+            return (
+              <div key={k} className={`rounded-2xl border shadow-md p-3 text-center ${card}`}>
+                <p className={`text-[10px] font-black uppercase tracking-wide mb-1 ${dimText}`}>{SEMESTER_DATA[k].label}</p>
+                <p className={`text-2xl font-black ${m.color}`}>{st.avg}</p>
+                <p className={`text-[9px] font-bold mt-0.5 ${dimText}`}>{st.earnedCredits}/{SEMESTER_DATA[k].credits} cr</p>
+                <p className={`text-[10px] mt-1 ${m.color} font-semibold`}>{m.emoji} {m.label}</p>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 mb-6 no-print">
           {[
-            { label: 'Moyenne S3', value: s3Stats.avg,  sub: `${s3Stats.earnedCredits}/${SEMESTER_DATA.s3.credits} cr` },
-            { label: 'Moyenne S4', value: s4Stats.avg,  sub: `${s4Stats.earnedCredits}/${SEMESTER_DATA.s4.credits} cr` },
-            { label: 'Moyenne Annuelle', value: yearlyAvg, sub: `${totalEarned}/60 cr`, hero: true },
-          ].map(({ label, value, sub, hero }) => {
+            { label: 'Moyenne Annuelle (2ème Année)', value: secondYearAvg, sub: `${totalEarned}/60 cr` },
+          ].map(({ label, value, sub }) => {
             const m = mention(parseFloat(value));
             return (
-              <div key={label} className={`rounded-2xl border shadow-md p-3 text-center flex flex-col justify-between transition-all ${
-                hero
-                  ? 'bg-emerald-600 text-white border-emerald-500 scale-[1.04]'
-                  : `${card}`
-              }`}>
-                <p className={`text-[10px] font-black uppercase tracking-wide mb-1 ${hero ? 'text-emerald-200' : dimText}`}>{label}</p>
-                <p className={`text-2xl font-black ${hero ? 'text-white' : m.color}`}>{value}</p>
-                <p className={`text-[9px] font-bold mt-0.5 ${hero ? 'text-emerald-200' : dimText}`}>{sub}</p>
-                <p className={`text-[10px] mt-1 ${hero ? 'text-emerald-100 font-bold' : `${m.color} font-semibold`}`}>{m.emoji} {m.label}</p>
+              <div key={label} className="rounded-2xl border shadow-md p-3 text-center bg-emerald-600 text-white border-emerald-500">
+                <p className="text-[10px] font-black uppercase tracking-wide mb-1 text-emerald-200">{label}</p>
+                <p className="text-2xl font-black text-white">{value}</p>
+                <p className="text-[9px] font-bold mt-0.5 text-emerald-200">{sub}</p>
+                <p className="text-[10px] mt-1 text-emerald-100 font-bold">{m.emoji} {m.label}</p>
               </div>
             );
           })}
         </div>
 
         {/* ── LEGEND ── */}
-        <div className={`${card} border rounded-2xl p-4 mb-6 shadow-sm`}>
+        <div className={`${card} border rounded-2xl p-4 mb-6 shadow-sm no-print`}>
           <p className={`text-[10px] font-black uppercase tracking-widest mb-3 ${dimText}`}>Système de notation</p>
-          <div className="grid grid-cols-2 gap-y-1.5 gap-x-4" dir="ltr">
+          <div className="grid grid-cols-2 gap-y-1.5 gap-x-4">
             {[
               { range: '16 – 20', label: 'Excellent',  color: 'bg-emerald-500' },
               { range: '14 – 15', label: 'Très bien',  color: 'bg-blue-500' },
@@ -584,20 +839,19 @@ function App() {
         </div>
 
         {/* ── FOOTER ── */}
-        <div className="text-center">
+        <div className="text-center no-print">
           <a href="https://t.me/uubma" target="_blank" rel="noopener noreferrer"
             className="inline-flex items-center gap-2 bg-blue-500 hover:bg-blue-600 active:scale-95 text-white font-bold px-6 py-3 rounded-2xl shadow-md transition-all text-sm">
             <i className="fa-brands fa-telegram text-lg"></i>
             Me contacter sur Telegram
           </a>
           <p className={`text-[10px] mt-3 font-semibold tracking-wide ${dimText}`}>
-            Données sauvegardées automatiquement · Univ. Blida 1
+            {saveOk ? 'Données sauvegardées automatiquement' : 'Sauvegarde automatique indisponible'} · Univ. Blida 1
           </p>
         </div>
       </div>
 
-      {/* Toast */}
-      {toast && <Toast msg={toast} />}
+      {toast && <Toast msg={toast.msg} icon={toast.icon} />}
     </div>
   );
 }
