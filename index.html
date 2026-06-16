@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>حاسبة المعدل S3 & S4 - هندسة كهروتقنية</title>
     
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.development.js" crossorigin></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" crossorigin></script>
     
     <script src="https://unpkg.com/@babel/standalone@7.22.20/babel.min.js"></script>
     
@@ -33,7 +33,7 @@ const semesterData = {
       },
       {
         id: 'uef2_s3',
-        name: '(U.E.F) A00F0001S3',
+        name: '(U.E.F) A00F0002S3',
         subjects: [
           { id: 'electricite', name: 'Eléctricité fondamentale', coef: 3, weights: { td: 0.2, tp: 0.2, exam: 0.6 }, fields: ['td', 'tp', 'exam'] },
           { id: 'mecanique',   name: 'Mécanique rationnelle',    coef: 2, weights: { td: 0.4, exam: 0.6 },           fields: ['td', 'exam'] },
@@ -71,7 +71,7 @@ const semesterData = {
       },
       {
         id: 'uef2_s4',
-        name: '(U.E.F) A00F0001S4',
+        name: '(U.E.F) A00F0002S4',
         subjects: [
           { id: 'electromag',   name: 'Electromagnétisme appliqué',            coef: 2, weights: { td: 0.4, exam: 0.6 },           fields: ['td', 'exam'] },
           { id: 'electrotechF', name: 'Electrotechnique fondamentale',          coef: 2, weights: { td: 0.4, exam: 0.6 },           fields: ['td', 'exam'] },
@@ -123,12 +123,16 @@ function App() {
   const [tab, setTab] = useState('s3');
   const [grades, setGrades] = useState(initGrades(semesterData));
 
-  const bg      = dark ? 'bg-gray-900' : 'bg-gray-100';
-  const card    = dark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900';
-  const subText = dark ? 'text-gray-300' : 'text-gray-700';
+  const bg      = dark ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-950';
+  const card    = dark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200';
+  const subText = dark ? 'text-gray-200' : 'text-gray-800';
 
   const handleChange = (id, field, val) => {
-    const num = val === '' ? '' : Math.min(20, Math.max(0, parseFloat(val) || 0));
+    if (val === '') {
+      setGrades(p => ({ ...p, [id]: { ...p[id], [field]: '' } }));
+      return;
+    }
+    const num = Math.min(20, Math.max(0, parseFloat(val) || 0));
     setGrades(p => ({ ...p, [id]: { ...p[id], [field]: num } }));
   };
 
@@ -166,38 +170,38 @@ function App() {
     return 'راسب';
   };
 
-  const avgColor = (v) => parseFloat(v) >= 10 ? 'text-green-600' : 'text-red-500';
+  const avgColor = (v) => parseFloat(v) >= 10 ? 'text-green-500 font-bold' : 'text-red-500 font-bold';
   const unitBg   = (v) => parseFloat(v) >= 10
-    ? (dark ? 'bg-green-900' : 'bg-green-50')
-    : (dark ? 'bg-red-900'   : 'bg-red-50');
+    ? (dark ? 'bg-green-950/40 border border-green-800' : 'bg-green-50 border border-green-200')
+    : (dark ? 'bg-red-950/40 border border-red-900'   : 'bg-red-50 border border-red-200');
   const semBg    = (v) => parseFloat(v) >= 10
-    ? 'border-green-500 text-green-600'
-    : 'border-red-400 text-red-500';
+    ? 'border-green-500 text-green-500 bg-green-500/10'
+    : 'border-red-500 text-red-500 bg-red-500/10';
 
   const sem = semesterData[tab];
   const avg = semesterAvg(sem);
 
   return (
-    <div className={`min-h-screen ${bg} transition-colors duration-300`}>
+    <div className={`min-h-screen ${bg} transition-colors duration-300 font-sans pb-10`}>
       {/* Header */}
-      <div className="bg-emerald-600 text-white text-center py-4 px-4 flex items-center justify-between">
-        <span className="text-xl font-bold">Academic Transcripts</span>
-        <button onClick={() => setDark(!dark)} className="p-2 rounded-full bg-emerald-700 hover:bg-emerald-800">
-          <i className={`fas ${dark ? 'fa-sun text-yellow-300' : 'fa-moon text-white'} w-5 h-5`}></i>
+      <div className="bg-emerald-600 text-white text-center py-4 px-6 flex items-center justify-between shadow-md">
+        <span className="text-xl font-bold tracking-wide">Academic Transcripts</span>
+        <button onClick={() => setDark(!dark)} className="p-2.5 rounded-full bg-emerald-700 hover:bg-emerald-800 transition-all">
+          <i className={`fa-solid ${dark ? 'fa-sun text-yellow-300' : 'fa-moon text-white'} text-lg`}></i>
         </button>
       </div>
 
-      <div className="max-w-2xl mx-auto px-3 py-4" dir="rtl">
+      <div className="max-w-2xl mx-auto px-4 py-6">
         {/* Tabs */}
-        <div className="flex gap-3 mb-4">
+        <div className="flex gap-4 mb-6">
           {['s3','s4'].map(s => (
             <button key={s} onClick={() => setTab(s)}
-              className={`flex-1 py-2 px-4 rounded-full font-bold border-2 transition-all ${
+              className={`flex-1 py-3 px-4 rounded-xl font-bold border-2 transition-all shadow-sm ${
                 tab === s
-                  ? 'bg-emerald-600 text-white border-emerald-600'
+                  ? 'bg-emerald-600 text-white border-emerald-600 scale-[1.02]'
                   : dark
-                    ? 'border-emerald-400 text-emerald-400 bg-transparent'
-                    : 'border-emerald-600 text-emerald-600 bg-transparent'
+                    ? 'border-gray-700 text-emerald-400 bg-gray-800 hover:bg-gray-700'
+                    : 'border-gray-300 text-emerald-600 bg-white hover:bg-gray-50'
               }`}>
               {s === 's3' ? 'Semestre 3' : 'Semestre 4'}
             </button>
@@ -205,46 +209,51 @@ function App() {
         </div>
 
         {/* Semester Card */}
-        <div className={`${card} rounded-xl shadow p-4 mb-4`}>
-          <h2 className="font-bold text-lg mb-2">Ingénieur 2ème Année</h2>
-          <div className="flex justify-between items-center mb-3">
-            <span className={`border-2 ${semBg(avg)} font-bold rounded-full px-4 py-1 text-sm`}>
+        <div className={`${card} rounded-2xl shadow-xl p-5 border mb-6 transition-all`}>
+          <h2 className="font-bold text-xl mb-3 border-b pb-2 text-emerald-600">Ingénieur 2ème Année</h2>
+          
+          <div className="flex justify-between items-center mb-5 gap-2">
+            <span className={`border-2 ${semBg(avg)} font-bold rounded-xl px-4 py-2 text-sm`}>
               Average {sem.label} : {avg}
             </span>
-            <span className={`text-sm font-semibold ${avgColor(avg)}`}>{mention(avg)}</span>
+            <span className={`text-base font-bold px-3 py-1 rounded-lg ${parseFloat(avg) >= 10 ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+              {mention(avg)}
+            </span>
           </div>
 
           {/* Table Header */}
-          <div className="flex font-bold text-sm border-b pb-2 mb-1">
-            <span className="flex-1">Module</span>
-            <span className="w-16 text-center">Coef</span>
-            <span className="w-20 text-center">Average</span>
+          <div className="flex font-bold text-xs uppercase tracking-wider text-gray-400 border-b pb-2 mb-3" dir="ltr">
+            <span className="flex-1 text-left">Module</span>
+            <span className="w-14 text-center">Coef</span>
+            <span className="w-20 text-right">Average</span>
           </div>
 
           {/* Units & Subjects */}
           {sem.units.map(unit => (
-            <div key={unit.id} className="mb-2">
+            <div key={unit.id} className="mb-5 last:mb-0">
               {unit.subjects.map(s => {
                 const a = subjectAvg(s);
                 return (
-                  <div key={s.id} className={`py-2 border-b ${dark ? 'border-gray-700' : 'border-gray-100'}`}>
-                    <div className="flex items-center mb-2">
-                      <span className={`flex-1 font-medium text-sm ${subText}`}>{s.name}</span>
-                      <span className="w-16 text-center text-sm font-bold">{s.coef}</span>
-                      <span className={`w-20 text-center font-bold text-sm ${avgColor(a)}`}>{a.toFixed(2)}</span>
+                  <div key={s.id} className={`py-3 border-b last:border-0 ${dark ? 'border-gray-700' : 'border-gray-100'}`}>
+                    <div className="flex items-center mb-3 gap-2" dir="ltr">
+                      <span className={`flex-1 font-semibold text-sm ${subText} text-left truncate`}>{s.name}</span>
+                      <span className="w-14 text-center text-sm font-bold text-gray-400">{s.coef}</span>
+                      <span className={`w-20 text-right text-sm ${avgColor(a)}`}>{a.toFixed(2)}</span>
                     </div>
-                    <div className="flex gap-2 flex-wrap">
+                    
+                    {/* Input Fields */}
+                    <div className="flex gap-3 flex-wrap justify-start items-center mb-1" dir="ltr">
                       {s.fields.map(f => (
-                        <div key={f} className="flex flex-col items-center">
-                          <span className={`text-xs mb-1 ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
-                            {f.toUpperCase()} ({(s.weights[f]*100).toFixed(0)}%)
+                        <div key={f} className="flex flex-col items-start bg-gray-500/5 p-2 rounded-lg border border-gray-500/10">
+                          <span className="text-[10px] font-bold text-gray-400 uppercase mb-1">
+                            {f} ({(s.weights[f]*100).toFixed(0)}%)
                           </span>
                           <input
                             type="number" min="0" max="20" step="0.25"
                             value={grades[s.id]?.[f] ?? ''}
                             onChange={e => handleChange(s.id, f, e.target.value)}
-                            className={`w-16 text-center px-2 py-1 rounded border text-sm outline-none focus:ring-2 focus:ring-emerald-400 ${
-                              dark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'
+                            className={`w-16 text-center font-bold px-1.5 py-1 rounded-md text-sm outline-none focus:ring-2 focus:ring-emerald-500 transition-all ${
+                              dark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'
                             }`}
                             placeholder="0.00"
                           />
@@ -254,10 +263,11 @@ function App() {
                   </div>
                 );
               })}
-              {/* Unit Row */}
-              <div className={`flex items-center py-2 px-2 rounded ${unitBg(unitAvg(unit))} mb-1`}>
-                <span className={`flex-1 font-bold text-sm ${avgColor(unitAvg(unit))}`}>{unit.name}</span>
-                <span className={`w-36 text-center font-bold text-sm ${avgColor(unitAvg(unit))}`}>
+              
+              {/* Unit Row Summary */}
+              <div className={`flex items-center py-2.5 px-3 rounded-xl ${unitBg(unitAvg(unit))} mt-2`} dir="ltr">
+                <span className="flex-1 font-bold text-xs truncate text-left">{unit.name}</span>
+                <span className="w-24 text-right font-black text-sm">
                   {unitAvg(unit).toFixed(2)}
                 </span>
               </div>
@@ -267,42 +277,43 @@ function App() {
 
         {/* Bottom GPA Cards */}
         <div className="grid grid-cols-3 gap-3 mt-4">
-          <div className={`${card} rounded-xl shadow p-3 text-center`}>
-            <p className={`text-xs mb-1 ${dark ? 'text-gray-400' : 'text-gray-500'}`}>معدل S3</p>
-            <p className={`text-2xl font-bold ${avgColor(gpaS3)}`}>{gpaS3.toFixed(2)}</p>
-            <p className="text-xs text-gray-400">{mention(gpaS3)}</p>
+          <div className={`${card} border rounded-2xl shadow-md p-3 text-center flex flex-col justify-between`}>
+            <p className="text-xs font-bold text-gray-400 mb-1">معدل S3</p>
+            <p className={`text-xl ${avgColor(gpaS3)}`}>{gpaS3.toFixed(2)}</p>
+            <p className="text-[10px] font-semibold text-gray-400 mt-1 truncate">{mention(gpaS3)}</p>
           </div>
-          <div className={`${card} rounded-xl shadow p-3 text-center`}>
-            <p className={`text-xs mb-1 ${dark ? 'text-gray-400' : 'text-gray-500'}`}>معدل S4</p>
-            <p className={`text-2xl font-bold ${avgColor(gpaS4)}`}>{gpaS4.toFixed(2)}</p>
-            <p className="text-xs text-gray-400">{mention(gpaS4)}</p>
+          
+          <div className={`${card} border rounded-2xl shadow-md p-3 text-center flex flex-col justify-between`}>
+            <p className="text-xs font-bold text-gray-400 mb-1">معدل S4</p>
+            <p className={`text-xl ${avgColor(gpaS4)}`}>{gpaS4.toFixed(2)}</p>
+            <p className="text-[10px] font-semibold text-gray-400 mt-1 truncate">{mention(gpaS4)}</p>
           </div>
-          <div className={`${dark ? 'bg-emerald-700' : 'bg-emerald-600'} rounded-xl shadow p-3 text-center`}>
-            <p className="text-xs mb-1 text-emerald-200">المعدل السنوي</p>
-            <p className="text-2xl font-bold text-white">{yearly}</p>
-            <p className="text-xs text-emerald-200">{mention(yearly)}</p>
+          
+          <div className={`${dark ? 'bg-emerald-700 text-white' : 'bg-emerald-600 text-white'} rounded-2xl shadow-md p-3 text-center flex flex-col justify-between scale-[1.03]`}>
+            <p className="text-xs font-bold text-emerald-100 mb-1">المعدل السنوي</p>
+            <p className="text-2xl font-black">{yearly}</p>
+            <p className="text-[10px] font-bold text-emerald-200 mt-1 truncate">{mention(yearly)}</p>
           </div>
         </div>
 
-        {/* Telegram */}
-        <div className="text-center mt-6 pb-6">
+        {/* Footer Link */}
+        <div className="text-center mt-8">
           <a href="https://t.me/uubma" target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white font-semibold px-6 py-3 rounded-lg shadow-lg transition-all hover:scale-105">
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.223-.548.223l.188-2.85 5.18-4.68c.223-.198-.054-.308-.346-.11l-6.4 4.03-2.76-.918c-.6-.187-.612-.6.125-.89l10.782-4.156c.5-.18.943.11.78.89z"/>
-            </svg>
+            className="inline-flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white font-bold px-6 py-3 rounded-xl shadow-md transition-all hover:scale-105 active:scale-95 text-sm">
+            <i className="fa-brands fa-telegram text-lg"></i>
             تواصل معي على تلغرام
           </a>
-          <p className={`text-xs mt-2 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>جامعة بليدة 1 - كهروتقنية</p>
+          <p className="text-[11px] mt-3 font-semibold text-gray-400 tracking-wide">جامعة البليدة 1 — هندسة كهروتقنية</p>
         </div>
       </div>
     </div>
   );
 }
 
-// التحديث البرمجي لطريقة الـ Render لتتوافق مع React 18 في المتصفح المباشر
-const root = BlakcDom.createRoot(document.getElementById('root'));
+// Render the application to the DOM securely using React 18 standards
+const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
 </script>
 </body>
 </html>
+
