@@ -4,14 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>حاسبة المعدل S3 & S4 - هندسة كهروتقنية</title>
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.development.js" crossorigin></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.development.js" crossorigin></script>
+    
+    <script src="https://unpkg.com/@babel/standalone@7.22.20/babel.min.js"></script>
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
 <div id="root"></div>
+
 <script type="text/babel">
 const { useState } = React;
 
@@ -122,7 +126,6 @@ function App() {
   const bg      = dark ? 'bg-gray-900' : 'bg-gray-100';
   const card    = dark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900';
   const subText = dark ? 'text-gray-300' : 'text-gray-700';
-  const rowUnit = dark ? 'bg-gray-700' : 'bg-red-50';
 
   const handleChange = (id, field, val) => {
     const num = val === '' ? '' : Math.min(20, Math.max(0, parseFloat(val) || 0));
@@ -297,7 +300,9 @@ function App() {
   );
 }
 
-ReactDOM.render(<App />, document.getElementById('root'));
+// التحديث البرمجي لطريقة الـ Render لتتوافق مع React 18 في المتصفح المباشر
+const root = BlakcDom.createRoot(document.getElementById('root'));
+root.render(<App />);
 </script>
 </body>
 </html>
